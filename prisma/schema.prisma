@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Shop {
+  id                   String         @id @default(uuid())
+  shopDomain           String         @unique
+  accessTokenEncrypted String
+  scopes               String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  customers            Customer[]
+  orders               Order[]
+  webhookEvents        WebhookEvent[]
+}
+
+model Customer {
+  id                String   @id @default(uuid())
+  shopId            String
+  shopifyCustomerId String
+  email             String?
+  firstName         String?
+  lastName          String?
+  phone             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  shop   Shop    @relation(fields: [shopId], references: [id])
+  orders Order[]
+
+  @@unique([shopId, shopifyCustomerId])
+  @@index([shopId, email])
+}
+
+model Order {
+  id                String    @id @default(uuid())
+  shopId            String
+  customerId        String?
+  shopifyOrderId    String
+  orderNumber       String
+  source            String    @default("SHOPIFY")
+  customerName      String?
+  customerEmail     String?
+  financialStatus   String?
+  fulfillmentStatus String?
+  currency          String
+  subtotalPrice     Decimal?  @db.Decimal(12, 2)
+  totalPrice        Decimal   @db.Decimal(12, 2)
+  orderDate         DateTime
+  shopifyUpdatedAt  DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  shop     Shop        @relation(fields: [shopId], references: [id])
+  customer Customer?   @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+
+  @@unique([shopId, shopifyOrderId])
+  @@index([shopId, orderDate])
+  @@index([shopId, financialStatus, orderDate])
+  @@index([shopId, totalPrice])
+  @@index([shopId, orderNumber])
+  @@index([shopId, customerName])
+}
+
+model OrderItem {
+  id                String  @id @default(uuid())
+  orderId           String
+  shopifyLineItemId String?
+  shopifyVariantId  String?
+  title             String
+  sku               String?
+  quantity          Int
+  unitPrice         Decimal @db.Decimal(12, 2)
+  lineTotal         Decimal @db.Decimal(12, 2)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model WebhookEvent {
+  id           String    @id @default(uuid())
+  shopId       String
+  eventId      String
+  topic        String
+  status       String    @default("RECEIVED")
+  payload      Json?
+  errorMessage String?
+  receivedAt   DateTime  @default(now())
+  processedAt  DateTime?
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@unique([shopId, eventId])
+  @@index([status, receivedAt])
+}
