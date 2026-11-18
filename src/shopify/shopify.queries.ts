@@ -34,6 +34,15 @@ query OrdersPage($first: Int!, $after: String, $query: String) {
 ${ORDER_FIELDS_FRAGMENT}
 `;
 
+export const WEBHOOK_SUBSCRIPTION_CREATE_MUTATION = `
+mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+  webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+    webhookSubscription { id }
+    userErrors { field message }
+  }
+}
+`;
+
 export const DRAFT_ORDER_CREATE_MUTATION = `
 mutation DraftOrderCreate($input: DraftOrderInput!) {
   draftOrderCreate(input: $input) {

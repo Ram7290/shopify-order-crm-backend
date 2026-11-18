@@ -16,10 +16,12 @@ model User {
 }
 
 model Shop {
-  id                   String         @id @default(uuid())
-  shopDomain           String         @unique
-  accessTokenEncrypted String
-  scopes               String
+  id                    String         @id @default(uuid())
+  shopDomain            String         @unique
+  accessTokenEncrypted  String
+  accessTokenExpiresAt  DateTime?
+  refreshTokenEncrypted String?
+  scopes                String
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   customers            Customer[]
