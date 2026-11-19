@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { ListOrdersQuery } from './dto/list-orders.query.js';
@@ -29,7 +29,10 @@ export class OrdersController {
   }
 
   @Post()
-  create(@Body() body: CreateOrderDto) {
-    return this.orders.createInShopify(body);
+  create(@Body() body: CreateOrderDto, @Headers('idempotency-key') idempotencyKey?: string) {
+    if (!idempotencyKey || !/^[A-Za-z0-9-]{8,100}$/.test(idempotencyKey)) {
+      throw new BadRequestException('Idempotency-Key header is required (8-100 letters, digits or dashes)');
+    }
+    return this.orders.createInShopify(body, idempotencyKey);
   }
 }

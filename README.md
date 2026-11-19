@@ -111,11 +111,20 @@ If you change the scopes, release a new app version and install the app again so
 
 The CRM saves the order only after both steps succeed. If Shopify returns an error, the request fails and nothing is saved locally.
 
+**Duplicate protection.** Every create request must send an `Idempotency-Key` header (8–100 letters, digits or dashes). The frontend creates one key per form and reuses it on retries.
+
+- The key is recorded in the `OrderCreateRequest` table before Shopify is called, with a status of `PENDING`, `SUCCEEDED` or `FAILED`.
+- The draft order is tagged `crm-request:<key>`.
+- A repeated key that already succeeded returns the existing order without calling Shopify again.
+- A repeated key while the first attempt is still running (within 30 seconds) returns `409 Conflict`.
+- A repeated key after an unclear failure first searches Shopify for an order with that tag. If one exists, it is saved locally. If not, the order is created.
+- A definite Shopify rejection marks the key `FAILED`, so the same key can be retried.
+
 Limitations:
 - Only existing product variants can be added. Custom line items are not supported.
 - Orders are created with payment pending, so no payment is taken.
 - If step 2 fails after step 1 succeeds, Shopify keeps an unused draft. It doesn't appear in the CRM.
-- If the network drops after Shopify created the order but before the response arrives, retrying can create a second order. The CRM can't detect this case yet.
+- The tag search relies on Shopify copying draft order tags to the completed order. Confirm this on a development store before relying on it in production.
 
 ## Webhooks
 

@@ -65,6 +65,15 @@ mutation DraftOrderCreate($input: DraftOrderInput!) {
 }
 `;
 
+export const ORDERS_SEARCH_QUERY = `
+query OrdersSearch($query: String!) {
+  orders(first: 1, query: $query) {
+    nodes { ...OrderFields }
+  }
+}
+${ORDER_FIELDS_FRAGMENT}
+`;
+
 export const DRAFT_ORDER_COMPLETE_MUTATION = `
 mutation DraftOrderComplete($id: ID!) {
   draftOrderComplete(id: $id, paymentPending: true) {
