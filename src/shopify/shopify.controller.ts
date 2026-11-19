@@ -28,4 +28,10 @@ export class ShopifyController {
   status() {
     return this.shopify.getStatus();
   }
+
+  @Get('variants')
+  @UseGuards(JwtAuthGuard)
+  variants(@Query('search') search = '') {
+    return this.shopify.searchVariants(String(search).slice(0, 100));
+  }
 }

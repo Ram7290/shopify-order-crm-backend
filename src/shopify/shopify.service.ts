@@ -5,7 +5,7 @@ import { decrypt, encrypt } from '../common/crypto.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { verifyOauthQueryHmac } from './hmac.util.js';
 import { ShopifyClient, ShopifyConnection } from './shopify.client.js';
-import { WEBHOOK_SUBSCRIPTION_CREATE_MUTATION } from './shopify.queries.js';
+import { PRODUCT_SEARCH_QUERY, WEBHOOK_SUBSCRIPTION_CREATE_MUTATION } from './shopify.queries.js';
 
 const ORDER_WEBHOOK_TOPICS = ['ORDERS_CREATE', 'ORDERS_UPDATED'];
 
@@ -105,6 +105,32 @@ export class ShopifyService {
     }
 
     return { shopId: shop.id, shopDomain: shop.shopDomain, accessToken };
+  }
+
+  async searchVariants(term: string) {
+    const connection = await this.getConnection();
+    const cleaned = term.replace(/["\\]/g, '').trim();
+    const data = await this.client.graphql<{
+      products: {
+        nodes: {
+          title: string;
+          variants: { nodes: { id: string; title: string; sku: string | null; price: string }[] };
+        }[];
+      };
+    }>(connection, PRODUCT_SEARCH_QUERY, {
+      first: 10,
+      query: cleaned ? `title:*${cleaned}*` : null,
+    });
+
+    return data.products.nodes.flatMap((product) =>
+      product.variants.nodes.map((variant) => ({
+        variantId: variant.id.split('/').pop(),
+        productTitle: product.title,
+        variantTitle: variant.title,
+        sku: variant.sku,
+        price: variant.price,
+      })),
+    );
   }
 
   async getStatus() {

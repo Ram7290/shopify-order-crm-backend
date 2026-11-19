@@ -34,6 +34,19 @@ query OrdersPage($first: Int!, $after: String, $query: String) {
 ${ORDER_FIELDS_FRAGMENT}
 `;
 
+export const PRODUCT_SEARCH_QUERY = `
+query ProductSearch($first: Int!, $query: String) {
+  products(first: $first, query: $query) {
+    nodes {
+      title
+      variants(first: 20) {
+        nodes { id title sku price }
+      }
+    }
+  }
+}
+`;
+
 export const WEBHOOK_SUBSCRIPTION_CREATE_MUTATION = `
 mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
   webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
