@@ -9,7 +9,7 @@ NestJS API for the Mini Order Management CRM. It connects to a Shopify store thr
 
 ## Features
 
-- CRM login with JWT (passwords hashed with `scrypt`)
+- CRM login with a JWT stored in an HTTP-only session cookie (`crm_session`), which the page scripts cannot read. Passwords are hashed with `scrypt`
 - Shopify OAuth install. The access token and refresh token are encrypted at rest (AES-256-GCM)
 - Automatic refresh of expiring Shopify access tokens
 - Order import from Shopify with paging, retry on rate limits and network errors
@@ -150,7 +150,9 @@ All routes are under `/api`. Routes marked 🔒 need `Authorization: Bearer <tok
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/health` | Health check |
-| POST | `/auth/login` | Log in, returns a JWT |
+| POST | `/auth/login` | Log in. Sets the `crm_session` HTTP-only cookie |
+| POST | `/auth/logout` | Clears the session cookie |
+| GET 🔒 | `/auth/me` | Returns the logged-in user (used to check the session) |
 | GET | `/shopify/install?shop=` | Start the OAuth install |
 | GET | `/shopify/callback` | OAuth callback (called by Shopify) |
 | GET 🔒 | `/shopify/status` | Connection status |
@@ -208,6 +210,7 @@ DELETE FROM "WebhookEvent" WHERE "eventId" LIKE 'e2e-%';
 - **Login rate limiting:** 5 login attempts per IP address per 15 minutes. Further attempts return HTTP 429.
 - **General rate limiting:** 300 requests per IP address per minute across the API. Shopify webhooks are excluded, so deliveries are never blocked.
 - **Trusted proxy:** the app trusts the first proxy hop, so the client IP is correct behind Render's load balancer.
+- **Session cookie:** `HttpOnly`, `SameSite=Lax`, `Secure` in production, valid for 12 hours. The frontend reaches the API through its own domain (a Vercel rewrite), so the cookie is first-party and browsers don't block it.
 - **Password hashing:** `scrypt` with a random salt per user.
 - **Token encryption:** Shopify access and refresh tokens are encrypted with AES-256-GCM before they are stored.
 

@@ -35,7 +35,7 @@ function required(name) {
 }
 
 const results = [];
-let token = null;
+let sessionCookie = null;
 
 async function check(name, fn) {
   try {
@@ -57,7 +57,7 @@ async function call(method, path, { auth = true, body, headers = {}, raw } = {})
     method,
     headers: {
       ...(body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(auth && sessionCookie ? { Cookie: sessionCookie } : {}),
       ...headers,
     },
     body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined),
@@ -111,10 +111,20 @@ await check('login validates the email format', async () => {
   const res = await call('POST', '/auth/login', { auth: false, body: { email: 'not-an-email', password: 'whatever1' } });
   assert(res.status === 400, `expected 400, got ${res.status}`);
 });
-await check('login succeeds with the admin account', async () => {
-  const res = await call('POST', '/auth/login', { auth: false, body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
-  assert(res.status === 200 && res.data?.accessToken, `expected 200 with a token, got ${res.status}`);
-  token = res.data.accessToken;
+await check('login succeeds and sets an HTTP-only session cookie', async () => {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+  });
+  assert(res.status === 200, `expected 200, got ${res.status}`);
+  const setCookie = res.headers.get('set-cookie') ?? '';
+  assert(/crm_session=/.test(setCookie) && /HttpOnly/i.test(setCookie), 'session cookie missing or not HttpOnly');
+  sessionCookie = setCookie.split(';')[0];
+});
+await check('session endpoint identifies the logged-in user', async () => {
+  const res = await call('GET', '/auth/me');
+  assert(res.status === 200 && res.data?.user?.email === ADMIN_EMAIL, `expected the admin user, got ${res.status}`);
 });
 await check('protected routes reject requests without a token', async () => {
   const res = await call('GET', '/orders', { auth: false });
