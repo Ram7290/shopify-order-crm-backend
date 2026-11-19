@@ -162,13 +162,54 @@ All routes are under `/api`. Routes marked 🔒 need `Authorization: Bearer <tok
 
 ## Tests
 
+### Unit tests
+
 ```bash
-npm test          # unit tests (HMAC checks, encryption, password hashing, webhook mapping)
-npm run lint
+npm test          # 23 unit tests: HMAC checks, token encryption, password hashing,
+                  # webhook mapping, duplicate-request decisions
 npx tsc --noEmit  # type check
 ```
 
-Unit tests cover the security-critical helpers and the mapping of Shopify payloads. End-to-end checks were run manually against a development store: login, import, search, filters, sorting, pagination, validation, webhook signature rejection, duplicate deliveries, stale and newer updates, and order creation.
+### End-to-end tests
+
+The end-to-end script runs against a running backend, either local or deployed. It checks login, the order list (paging, search, filters, sorting, validation), order details, webhooks (forged and wrong signatures, duplicates, stale and newer updates), and order creation with duplicate protection.
+
+1. Start the backend (`npm run start:dev`), or use the deployed URL.
+2. Set the environment variables and run the script:
+
+```bash
+E2E_BASE_URL=http://localhost:3000/api \
+ADMIN_EMAIL=admin@example.com \
+ADMIN_PASSWORD='your-admin-password' \
+SHOPIFY_API_SECRET='your-app-secret' \
+SHOP_DOMAIN=your-store.myshopify.com \
+npm run test:e2e
+```
+
+Options:
+
+| Variable | Effect |
+| --- | --- |
+| `E2E_VARIANT_ID` | Enables the create-order checks. These create a **real order** in the connected Shopify store |
+| `E2E_SKIP_SHOPIFY=1` | Skips the checks that call Shopify (sync and create). Use this when Shopify isn't reachable |
+| `E2E_RATE_LIMIT=1` | Checks login rate limiting. This blocks login from that address for 15 minutes |
+
+The script exits with code 1 if any check fails.
+
+The webhook checks write test rows with order numbers starting `#E2E-`. Remove them with:
+
+```sql
+DELETE FROM "Order" WHERE "orderNumber" LIKE '#E2E-%';
+DELETE FROM "WebhookEvent" WHERE "eventId" LIKE 'e2e-%';
+```
+
+## Security measures
+
+- **Login rate limiting:** 5 login attempts per IP address per 15 minutes. Further attempts return HTTP 429.
+- **General rate limiting:** 300 requests per IP address per minute across the API. Shopify webhooks are excluded, so deliveries are never blocked.
+- **Trusted proxy:** the app trusts the first proxy hop, so the client IP is correct behind Render's load balancer.
+- **Password hashing:** `scrypt` with a random salt per user.
+- **Token encryption:** Shopify access and refresh tokens are encrypted with AES-256-GCM before they are stored.
 
 ## Deployment (Render + Neon)
 
